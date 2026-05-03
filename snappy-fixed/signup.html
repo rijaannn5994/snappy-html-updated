@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Snappy — Sign Up</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+let step = 'form'; // 'form' | 'verify'
+let simulatedCode = null;
+let expiryTimer = null;
+
+function init() {
+  renderLayout('', buildForm());
+  setTimeout(() => document.getElementById('email')?.focus(), 50);
+}
+
+function buildForm() {
+  return `<div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-logo">${iconLightning}</div>
+      <div class="auth-title">Create your account</div>
+      <div class="auth-sub">Join Snappy to start sharing your memories.</div>
+      <div id="error-box" class="error-box" style="display:none;">${iconAlert} <span id="error-msg"></span></div>
+      <div class="field"><label>Email</label><input type="email" id="email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')nextField('username')"></div>
+      <div class="field"><label>Username</label><input type="text" id="username" placeholder="e.g. alice" onkeydown="if(event.key==='Enter')nextField('password')"></div>
+      <div class="field">
+        <label>Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')nextField('confirm')">
+          <button type="button" class="pw-toggle" onclick="togglePw('password','pw1')" id="pw1">${iconEye}</button>
+        </div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:5px;">Must be at least 6 characters</div>
+      </div>
+      <div class="field">
+        <label>Confirm Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="confirm" placeholder="••••••••" onkeydown="if(event.key==='Enter')submitForm()">
+          <button type="button" class="pw-toggle" onclick="togglePw('confirm','pw2')" id="pw2">${iconEye}</button>
+        </div>
+      </div>
+      <button class="auth-submit" id="submit-btn" onclick="submitForm()">Continue</button>
+      <div class="auth-footer">Already have an account? <a href="login.html">Log in</a></div>
+    </div>
+  </div>`;
+}
+
+function buildVerify() {
+  return `<div class="auth-wrap">
+    <div class="auth-card">
+      <button onclick="backToForm()" style="display:flex;align-items:center;gap:6px;font-size:13px;color:#6b7280;margin-bottom:20px;background:none;border:none;cursor:pointer;">${iconArrowLeft} Back to signup</button>
+      <div class="auth-logo" style="background:#f0fdf4;">${iconMail.replace('currentColor','#16a34a')}</div>
+      <div class="auth-title">Check your email</div>
+      <div class="auth-sub" id="verify-sub">We sent a 6-digit code to your email.</div>
+
+      ${simulatedCode ? `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 16px;font-size:13px;color:#92400e;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:6px;font-weight:700;margin-bottom:4px;">${iconShieldOk} Demo Mode</div>
+        Your code: <strong style="font-family:monospace;font-size:16px;letter-spacing:2px;background:#fef3c7;padding:2px 8px;border-radius:4px;">${simulatedCode}</strong>
+      </div>` : ''}
+
+      <div id="error-box" class="error-box" style="display:none;">${iconAlert} <span id="error-msg"></span></div>
+
+      <div class="code-inputs" id="code-inputs">
+        ${[0,1,2,3,4,5].map(i => `<input class="code-input" id="ci${i}" maxlength="6" inputmode="numeric" oninput="codeInput(${i},this)" onkeydown="codeKey(${i},event)">`).join('')}
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;margin-bottom:20px;">
+        <span id="timer-text" style="color:#6b7280;"></span>
+        <span style="color:#d1d5db;">|</span>
+        <button id="resend-btn" onclick="resend()" style="display:flex;align-items:center;gap:4px;color:#4f46e5;font-weight:700;font-size:13px;background:none;border:none;cursor:pointer;">${iconRefresh} Resend code</button>
+      </div>
+
+      <button class="auth-submit" id="verify-btn" onclick="submitVerify()" disabled>
+        ${iconShieldOk} Verify &amp; Create Account
+      </button>
+    </div>
+  </div>`;
+}
+
+function nextField(id) { document.getElementById(id)?.focus(); }
+
+function togglePw(inputId, btnId) {
+  const inp = document.getElementById(inputId);
+  const btn = document.getElementById(btnId);
+  if (inp.type === 'password') { inp.type = 'text'; btn.innerHTML = iconEyeOff; }
+  else { inp.type = 'password'; btn.innerHTML = iconEye; }
+}
+
+function submitForm() {
+  const email = document.getElementById('email').value.trim();
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  const confirm = document.getElementById('confirm').value;
+  clearError();
+  if (!email) { showError('Please enter your email.'); return; }
+  if (!username) { showError('Please enter a username.'); return; }
+  if (!password) { showError('Please enter a password.'); return; }
+  if (password !== confirm) { showError('Passwords do not match.'); return; }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = `${iconSpinner} Sending code...`;
+
+  setTimeout(() => {
+    const res = initiateSignup(username, email, password);
+    if (res.success) {
+      simulatedCode = res.code;
+      step = 'verify';
+      document.querySelector('.page-inner').innerHTML = buildVerify();
+      document.getElementById('verify-sub').textContent = `We sent a 6-digit code to ${email.replace(/(.{2})(.*)(@.*)/, (_,a,b,c) => a + b.replace(/./g,'*') + c)}`;
+      startTimer();
+      setTimeout(() => document.getElementById('ci0')?.focus(), 50);
+    } else {
+      showError(res.error || 'Signup failed.');
+      btn.disabled = false;
+      btn.innerHTML = 'Continue';
+    }
+  }, 600);
+}
+
+function codeInput(i, el) {
+  el.value = el.value.replace(/\D/g,'');
+  if (el.value.length > 1) {
+    // Handle paste
+    const digits = el.value.slice(0,6).split('');
+    digits.forEach((d, j) => {
+      const inp = document.getElementById(`ci${i+j}`);
+      if (inp) inp.value = d;
+    });
+    const next = document.getElementById(`ci${Math.min(i+digits.length,5)}`);
+    if (next) next.focus();
+    el.value = el.value[0] || '';
+  } else if (el.value && i < 5) {
+    document.getElementById(`ci${i+1}`)?.focus();
+  }
+  updateDigitStyles();
+  checkVerifyBtn();
+}
+
+function codeKey(i, e) {
+  if (e.key === 'Backspace' && !document.getElementById(`ci${i}`).value && i > 0) {
+    document.getElementById(`ci${i-1}`)?.focus();
+  }
+}
+
+function updateDigitStyles() {
+  for (let i=0; i<6; i++) {
+    const el = document.getElementById(`ci${i}`);
+    if (el) el.className = 'code-input' + (el.value ? ' filled' : '');
+  }
+}
+
+function getCode() { return [0,1,2,3,4,5].map(i => document.getElementById(`ci${i}`)?.value||'').join(''); }
+
+function checkVerifyBtn() {
+  const btn = document.getElementById('verify-btn');
+  if (btn) btn.disabled = getCode().length < 6;
+}
+
+function startTimer() {
+  let secs = 60;
+  const el = document.getElementById('timer-text');
+  if (expiryTimer) clearInterval(expiryTimer);
+  expiryTimer = setInterval(() => {
+    secs--;
+    if (el) el.textContent = secs > 0 ? `Code expires in ${secs}s` : 'Code expired.';
+    if (secs <= 0) { clearInterval(expiryTimer); if(el) el.style.color='#dc2626'; }
+  }, 1000);
+}
+
+function resend() {
+  const btn = document.getElementById('resend-btn');
+  btn.disabled = true;
+  btn.innerHTML = `${iconSpinner} Sending...`;
+  setTimeout(() => {
+    const res = resendCode();
+    if (res.success) {
+      simulatedCode = res.code;
+      // Update demo banner if present
+      const demoEl = document.querySelector('[style*="fffbeb"] strong');
+      if (demoEl) demoEl.textContent = simulatedCode;
+      [0,1,2,3,4,5].forEach(i => { const el=document.getElementById(`ci${i}`); if(el) el.value=''; });
+      updateDigitStyles();
+      checkVerifyBtn();
+      startTimer();
+      document.getElementById('ci0')?.focus();
+    }
+    btn.disabled = false;
+    btn.innerHTML = `${iconRefresh} Resend code`;
+  }, 800);
+}
+
+function submitVerify() {
+  const code = getCode();
+  if (code.length < 6) { showError('Please enter the full 6-digit code.'); return; }
+  clearError();
+  const btn = document.getElementById('verify-btn');
+  btn.disabled = true;
+  btn.innerHTML = `${iconSpinner} Verifying...`;
+  setTimeout(() => {
+    const res = verifySignup(code);
+    if (res.success) {
+      showToast('Account created! Welcome to Snappy 🎉');
+      window.location.href = 'profile.html';
+    } else {
+      showError(res.error || 'Verification failed.');
+      btn.disabled = false;
+      btn.innerHTML = `${iconShieldOk} Verify & Create Account`;
+    }
+  }, 500);
+}
+
+function backToForm() {
+  step = 'form';
+  simulatedCode = null;
+  if (expiryTimer) clearInterval(expiryTimer);
+  document.querySelector('.page-inner').innerHTML = buildForm();
+  setTimeout(() => document.getElementById('email')?.focus(), 50);
+}
+
+function showError(msg) { document.getElementById('error-msg').textContent = msg; document.getElementById('error-box').style.display = 'flex'; }
+function clearError() { const b=document.getElementById('error-box'); if(b) b.style.display='none'; }
+
+init();
+</script>
+</body>
+</html>

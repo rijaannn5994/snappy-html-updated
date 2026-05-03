@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Environment variables (NEVER commit these — contains Azure secrets)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Snappy — Upload</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+let selectedFile = null;
+let fileType = 'image';
+let privacy = 'private';
+
+function init() {
+  const user = State.currentUser;
+
+  if (!user) {
+    renderLayout('upload', `
+      <div class="empty-state" style="min-height:400px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+        <div style="width:64px;height:64px;background:#eef2ff;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#4f46e5;">${iconUpload}</div>
+        <h2 style="font-size:24px;font-weight:800;">Sign in to Upload</h2>
+        <p style="color:#6b7280;max-width:320px;text-align:center;">Join our community to start sharing your beautiful moments.</p>
+        <a href="login.html" class="btn-primary" style="padding:12px 32px;font-size:15px;">Go to Login</a>
+      </div>`);
+    return;
+  }
+
+  renderLayout('upload', `
+    <h1 class="page-title">Upload Media</h1>
+    <p class="page-sub">Share your latest photos, creations, or documents.</p>
+
+    <div id="error-box" class="error-box" style="display:none;">${iconAlert} <span id="error-msg"></span></div>
+
+    <!-- Drop Zone -->
+    <div class="drop-zone" id="drop-zone" onclick="triggerPick()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave()" ondrop="handleDrop(event)">
+      <div id="drop-content" style="display:flex;flex-direction:column;align-items:center;gap:12px;color:#9ca3af;pointer-events:none;">
+        <div style="width:64px;height:64px;background:#f3f4f6;border-radius:50%;display:flex;align-items:center;justify-content:center;">${iconUpload}</div>
+        <div style="text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:#374151;margin-bottom:4px;">Click or drag file here</div>
+          <div style="font-size:13px;">Supports JPG, PNG, WEBP, GIF, PDF (up to 20MB)</div>
+        </div>
+        <span style="background:#fff;border:1.5px solid #e5e7eb;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:600;color:#374151;pointer-events:auto;cursor:pointer;">Browse Files</span>
+      </div>
+    </div>
+    <input type="file" id="file-input" accept="image/*,.pdf,application/pdf" style="display:none;" onchange="handleFileSelect(event)">
+
+    <div id="file-badge" style="display:none;margin:12px 0;"></div>
+
+    <div class="card" style="padding:28px;margin-top:20px;">
+      <div style="display:flex;gap:32px;flex-wrap:wrap;">
+        <!-- Fields -->
+        <div style="flex:1;min-width:220px;">
+          <div class="field">
+            <label>Title</label>
+            <input type="text" id="title-input" placeholder="A catchy title for your post">
+          </div>
+          <div class="field">
+            <label>Caption <span style="color:#9ca3af;font-weight:400;">(Optional)</span></label>
+            <textarea id="caption-input" rows="3" placeholder="Tell us more about this file..."></textarea>
+          </div>
+        </div>
+        <!-- Privacy -->
+        <div style="width:220px;flex-shrink:0;">
+          <label style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:10px;">Visibility</label>
+          <button class="privacy-btn" id="priv-pub" onclick="setPrivacy('public')" type="button">
+            <span class="pv-icon">${iconGlobe}</span>
+            <span><span class="privacy-title">Public</span><span class="privacy-sub">Anyone can view this</span></span>
+          </button>
+          <button class="privacy-btn selected" id="priv-priv" onclick="setPrivacy('private')" type="button">
+            <span class="pv-icon">${iconLock}</span>
+            <span><span class="privacy-title">Private</span><span class="privacy-sub">Only you can view this</span></span>
+          </button>
+        </div>
+      </div>
+      <!-- Submit -->
+      <div style="margin-top:24px;padding-top:20px;border-top:1px solid #f3f4f6;display:flex;justify-content:flex-end;">
+        <button id="submit-btn" onclick="handleSubmit()" disabled
+          style="display:flex;align-items:center;gap:8px;background:#e5e7eb;color:#9ca3af;padding:12px 28px;border-radius:10px;font-size:15px;font-weight:700;border:none;cursor:not-allowed;transition:all .2s;">
+          ${iconUpload} Publish Post
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+function triggerPick() { if (!selectedFile) document.getElementById('file-input').click(); }
+function handleDragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag'); }
+function handleDragLeave() { document.getElementById('drop-zone').classList.remove('drag'); }
+function handleDrop(e) { e.preventDefault(); handleDragLeave(); const f = e.dataTransfer.files?.[0]; if(f) processFile(f); }
+function handleFileSelect(e) { const f = e.target.files?.[0]; if(f) processFile(f); }
+
+function processFile(file) {
+  const ACCEPTED = ['image/jpeg','image/png','image/webp','image/gif','application/pdf'];
+  if (!ACCEPTED.includes(file.type)) { showError('Unsupported type. Use JPG, PNG, WEBP, GIF, or PDF.'); return; }
+  if (file.size > 20*1024*1024) { showError('File too large. Maximum 20MB.'); return; }
+  clearError();
+  selectedFile = file;
+  fileType = file.type === 'application/pdf' ? 'pdf' : 'image';
+  const zone = document.getElementById('drop-zone');
+  zone.classList.add('has-file');
+  zone.onclick = null;
+
+  if (fileType === 'pdf') {
+    zone.innerHTML = `
+      <div class="pdf-thumb" style="height:100%;">${iconFileText}<span style="font-size:14px;font-weight:700;">${file.name}</span></div>
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,.5);opacity:0;display:flex;align-items:center;justify-content:center;transition:opacity .2s;" class="remove-overlay">
+        <button type="button" onclick="clearFile()" style="background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);color:#fff;padding:8px 20px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">Remove File</button>
+      </div>`;
+  } else {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      zone.innerHTML = `
+        <img src="${ev.target.result}" class="drop-zone-thumb">
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,.5);opacity:0;display:flex;align-items:center;justify-content:center;transition:opacity .2s;" class="remove-overlay">
+          <button type="button" onclick="clearFile()" style="background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);color:#fff;padding:8px 20px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">Remove Image</button>
+        </div>`;
+      zone.onmouseenter = () => zone.querySelector('.remove-overlay').style.opacity = '1';
+      zone.onmouseleave = () => zone.querySelector('.remove-overlay').style.opacity = '0';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  const badge = document.getElementById('file-badge');
+  badge.style.display = 'flex';
+  badge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;${fileType==='pdf'?'background:#fef2f2;color:#dc2626;border:1px solid #fecaca;':'background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;'}">${fileType==='pdf'?iconFileText:iconUpload} ${fileType==='pdf'?'PDF Document':'Image'}</span><span style="font-size:13px;color:#6b7280;margin-left:8px;">${file.name}</span>`;
+
+  updateSubmitBtn();
+}
+
+function clearFile() {
+  selectedFile = null;
+  const zone = document.getElementById('drop-zone');
+  zone.classList.remove('has-file','drag');
+  zone.onmouseenter = null; zone.onmouseleave = null;
+  zone.innerHTML = `<div id="drop-content" style="display:flex;flex-direction:column;align-items:center;gap:12px;color:#9ca3af;pointer-events:none;">
+    <div style="width:64px;height:64px;background:#f3f4f6;border-radius:50%;display:flex;align-items:center;justify-content:center;">${iconUpload}</div>
+    <div style="text-align:center;"><div style="font-size:18px;font-weight:700;color:#374151;margin-bottom:4px;">Click or drag file here</div><div style="font-size:13px;">Supports JPG, PNG, WEBP, GIF, PDF (up to 20MB)</div></div>
+    <span style="background:#fff;border:1.5px solid #e5e7eb;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:600;color:#374151;pointer-events:auto;cursor:pointer;">Browse Files</span>
+  </div>`;
+  zone.onclick = () => triggerPick();
+  document.getElementById('file-badge').style.display = 'none';
+  document.getElementById('file-input').value = '';
+  updateSubmitBtn();
+}
+
+function setPrivacy(v) {
+  privacy = v;
+  document.getElementById('priv-pub').className = 'privacy-btn' + (v==='public'?' selected':'');
+  document.getElementById('priv-priv').className = 'privacy-btn' + (v==='private'?' selected':'');
+}
+
+function updateSubmitBtn() {
+  const btn = document.getElementById('submit-btn');
+  if (!btn) return;
+  if (selectedFile) {
+    btn.disabled = false;
+    btn.style.cssText = 'display:flex;align-items:center;gap:8px;background:#4f46e5;color:#fff;padding:12px 28px;border-radius:10px;font-size:15px;font-weight:700;border:none;cursor:pointer;transition:all .2s;';
+  } else {
+    btn.disabled = true;
+    btn.style.cssText = 'display:flex;align-items:center;gap:8px;background:#e5e7eb;color:#9ca3af;padding:12px 28px;border-radius:10px;font-size:15px;font-weight:700;border:none;cursor:not-allowed;';
+  }
+}
+
+async function handleSubmit() {
+  const title = document.getElementById('title-input').value.trim();
+  if (!selectedFile) { showError('Please select a file first.'); return; }
+  if (!title) { showError('Please provide a title.'); return; }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = `${iconSpinner} Uploading to Azure...`;
+  btn.style.cursor = 'not-allowed';
+  clearError();
+
+  try {
+    const fileUrl = await uploadToBlob(selectedFile);
+    const res = await api('POST', '/posts', {
+      title,
+      caption: document.getElementById('caption-input').value.trim(),
+      privacy,
+      fileUrl,
+      fileType,
+      fileName: fileType === 'pdf' ? selectedFile.name : undefined,
+      author: State.currentUser,
+    });
+    if (res.success) {
+      showToast('Post published! Redirecting to your profile...');
+      window.location.href = 'profile.html';
+    } else {
+      showError(res.error || 'Backend save failed.');
+      btn.disabled = false;
+      btn.innerHTML = `${iconUpload} Publish Post`;
+      btn.style.cursor = 'pointer';
+    }
+  } catch(e) {
+    showError(e.message || 'Upload failed. Check your SAS token in config.js.');
+    btn.disabled = false;
+    btn.innerHTML = `${iconUpload} Publish Post`;
+    btn.style.cursor = 'pointer';
+    updateSubmitBtn();
+  }
+}
+
+function showError(msg) {
+  const b = document.getElementById('error-box');
+  document.getElementById('error-msg').textContent = msg;
+  b.style.display = 'flex';
+}
+function clearError() {
+  const b = document.getElementById('error-box');
+  if (b) b.style.display = 'none';
+}
+
+init();
+</script>
+</body>
+</html>

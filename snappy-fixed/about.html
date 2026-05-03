@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Snappy — About</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+renderLayout('about', `
+  <div class="static-page">
+    <h1>About Snappy</h1>
+    <p class="lead">A modern media sharing platform powered by Microsoft Azure.</p>
+    <h2>What is Snappy?</h2>
+    <p>Snappy is a photo and document sharing application built as a cloud-native project using Azure Blob Storage for media files and Azure Cosmos DB for metadata storage.</p>
+    <h2>Tech Stack</h2>
+    <p>The frontend is plain HTML, CSS, and JavaScript — no build step required. Just open the files in a browser. The backend is a Node.js/Express API that connects to Azure Cosmos DB. Media files are uploaded directly from the browser to Azure Blob Storage using a SAS token.</p>
+    <h2>Features</h2>
+    <p>Upload photos and PDFs, set visibility to public or private, like and comment on posts, edit your profile with a bio and photo, and share posts across social media.</p>
+  </div>
+`);
+</script>
+</body>
+</html>

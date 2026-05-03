@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Snappy — Privacy</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+renderLayout('privacy', `
+  <div class="static-page">
+    <h1>Privacy Policy</h1>
+    <p class="lead">Your data stays yours. Here's how Snappy handles it.</p>
+    <h2>Data We Store</h2>
+    <p>Your username, email, profile information, and uploaded media are stored in Azure Cosmos DB and Azure Blob Storage. Passwords are stored locally in your browser's localStorage — this is a demo app and does not transmit passwords to a server.</p>
+    <h2>Media Visibility</h2>
+    <p>Posts marked <strong>Public</strong> are visible to all visitors. Posts marked <strong>Private</strong> are only visible to you when logged in. You can change the visibility of any post at any time.</p>
+    <h2>Data Deletion</h2>
+    <p>You can delete any post you have uploaded. This removes the metadata from Cosmos DB. To remove the file from Blob Storage you would need to delete it from the Azure Portal directly (SAS tokens do not currently grant delete access).</p>
+    <h2>Cookies & Local Storage</h2>
+    <p>Snappy uses your browser's localStorage to remember your login session and profile settings. No third-party cookies or tracking scripts are used.</p>
+  </div>
+`);
+</script>
+</body>
+</html>

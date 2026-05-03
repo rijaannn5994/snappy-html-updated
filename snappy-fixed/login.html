@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Snappy — Log In</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+function init() {
+  renderLayout('', `
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <div class="auth-logo">${iconLightning}</div>
+        <div class="auth-title">Welcome back</div>
+        <div class="auth-sub">Enter your credentials to access your profile.</div>
+
+        <div class="info-box"><strong>Demo accounts:</strong> alice / alice123 &nbsp;or&nbsp; bob / bob123</div>
+
+        <div id="error-box" class="error-box" style="display:none;">${iconAlert} <span id="error-msg"></span></div>
+
+        <div class="field">
+          <label>Username</label>
+          <input type="text" id="username" placeholder="e.g. alice" onkeydown="if(event.key==='Enter')submit()">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <div class="pw-wrap">
+            <input type="password" id="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')submit()">
+            <button type="button" class="pw-toggle" onclick="togglePw()" id="pw-toggle">${iconEye}</button>
+          </div>
+        </div>
+
+        <button class="auth-submit" id="submit-btn" onclick="submit()">Log In</button>
+
+        <div class="auth-footer">
+          Don't have an account? <a href="signup.html">Sign up</a>
+        </div>
+      </div>
+    </div>
+  `);
+  setTimeout(() => document.getElementById('username')?.focus(), 50);
+}
+
+function togglePw() {
+  const inp = document.getElementById('password');
+  const btn = document.getElementById('pw-toggle');
+  if (inp.type === 'password') { inp.type = 'text'; btn.innerHTML = iconEyeOff; }
+  else { inp.type = 'password'; btn.innerHTML = iconEye; }
+}
+
+function submit() {
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  clearError();
+  if (!username) { showError('Please enter your username.'); return; }
+  if (!password) { showError('Please enter your password.'); return; }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = `${iconSpinner} Signing in...`;
+
+  setTimeout(() => {
+    const res = login(username, password);
+    if (res.success) {
+      showToast('Welcome back, @' + username + '!');
+      window.location.href = 'profile.html';
+    } else {
+      showError(res.error || 'Login failed.');
+      btn.disabled = false;
+      btn.innerHTML = 'Log In';
+    }
+  }, 400);
+}
+
+function showError(msg) { document.getElementById('error-msg').textContent = msg; document.getElementById('error-box').style.display = 'flex'; }
+function clearError() { document.getElementById('error-box').style.display = 'none'; }
+
+init();
+</script>
+</body>
+</html>

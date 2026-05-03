@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Snappy — Contact</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+renderLayout('contact', `
+  <div class="static-page">
+    <h1>Contact</h1>
+    <p class="lead">Questions, bugs, or feedback? We'd love to hear from you.</p>
+    <h2>Get in Touch</h2>
+    <p>Snappy is a student/demo project. For questions about the codebase or Azure setup, feel free to reach out through your course portal or GitHub issues.</p>
+    <h2>Found a Bug?</h2>
+    <p>Open an issue in the project repository with a description of the problem, the steps to reproduce it, and your browser/OS version.</p>
+    <h2>Feature Requests</h2>
+    <p>We welcome ideas! Submit feature requests via the repository issues tab or discuss them in the project's discussion board.</p>
+    <div style="margin-top:32px;background:#eef2ff;border-radius:12px;padding:20px 24px;border:1px solid #c7d2fe;">
+      <div style="font-weight:700;color:#3730a3;margin-bottom:6px;">Quick Message</div>
+      <p style="color:#4338ca;font-size:14px;margin:0;">This contact form is a UI placeholder — connect a real form service like Formspree or EmailJS to make it functional.</p>
+    </div>
+  </div>
+`);
+</script>
+</body>
+</html>

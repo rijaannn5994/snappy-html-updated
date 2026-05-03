@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Snappy — Explore</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+let allPosts = [];
+let currentModal = null;
+
+async function init() {
+  renderLayout('home', `
+    <h1 class="page-title">Explore</h1>
+    <p class="page-sub">Discover the latest public moments from the community.</p>
+    <div class="search-bar">
+      ${iconSearch}
+      <input type="text" id="search-input" placeholder="Search by title, caption, or author..." oninput="filterPosts()">
+      <span class="search-clear" id="search-clear" onclick="clearSearch()" style="display:none">${iconXsm}</span>
+    </div>
+    <div id="search-hint" style="font-size:13px;color:#6b7280;margin-bottom:16px;margin-top:-12px;"></div>
+    <div id="posts-grid" class="post-grid"><div style="color:#9ca3af;padding:40px 0;">Loading posts...</div></div>
+  `);
+
+  await loadPosts();
+}
+
+async function loadPosts() {
+  try {
+    const data = await api('GET', '/posts');
+    console.log('RAW DATA:', JSON.stringify(data));
+    allPosts = (data.data || [])
+      .filter(p => p.privacy === 'public')
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    console.log('PUBLIC POSTS:', allPosts.length);
+    renderPosts(allPosts);
+  } catch(e) {
+    console.log('ERROR:', e.message);
+    const grid = document.getElementById('posts-grid');
+    if (grid) grid.innerHTML = `<div class="empty-state"><p>Could not connect to backend. Make sure <code>node index.js</code> is running.</p></div>`;
+  }
+}
+
+function filterPosts() {
+  const q = document.getElementById('search-input').value.toLowerCase().trim();
+  document.getElementById('search-clear').style.display = q ? 'block' : 'none';
+  const filtered = q
+    ? allPosts.filter(p =>
+        p.title?.toLowerCase().includes(q) ||
+        p.caption?.toLowerCase().includes(q) ||
+        p.author?.toLowerCase().includes(q))
+    : allPosts;
+  const hint = document.getElementById('search-hint');
+  hint.textContent = q ? `${filtered.length} result${filtered.length !== 1 ? 's' : ''} for "${q}"` : '';
+  renderPosts(filtered);
+}
+
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-clear').style.display = 'none';
+  document.getElementById('search-hint').textContent = '';
+  renderPosts(allPosts);
+}
+
+function renderPosts(posts) {
+  const grid = document.getElementById('posts-grid');
+  if (!grid) return;
+  if (!posts.length) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1">
+        <p>No public posts yet. Be the first to share something!</p>
+        <a href="upload.html" class="btn-primary" style="display:inline-block;margin:0 auto;">Upload Now</a>
+      </div>`;
+    return;
+  }
+  grid.innerHTML = posts.map(p => postCardHtml(p)).join('');
+}
+
+function postCardHtml(p) {
+  const user = State.currentUser;
+  const likes = p.likes || [];
+  const isLiked = user && likes.includes(user);
+  const isOwner = user && user === p.author;
+  const isPdf = (p.fileType || 'image') === 'pdf';
+
+  const thumb = isPdf
+    ? `<div class="pdf-thumb">${iconFileText}<span>PDF Document</span></div>`
+    : `<img src="${p.fileUrl}" alt="${escHtml(p.title)}" loading="lazy"
+        onerror="this.src='https://placehold.co/400x300/f3f4f6/9ca3af?text=Image'">`;
+
+  return `
+    <div class="post-card" onclick="openModal('${p.id}')" style="cursor:pointer;">
+      <div class="post-thumb" style="position:relative;">
+        ${thumb}
+        ${isOwner ? `<span style="position:absolute;top:8px;left:8px;background:#4f46e5;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;letter-spacing:.3px;">★ Yours</span>` : ''}
+      </div>
+      <div class="post-body">
+        <div class="post-title">${escHtml(p.title || 'Untitled')}</div>
+        <div class="post-caption">${escHtml(p.caption || '')}</div>
+        <div class="stats-row">
+          <button class="like-btn ${isLiked ? 'liked' : ''}"
+            onclick="event.stopPropagation(); toggleLikePost('${p.id}', this)"
+            title="${user ? 'Like' : 'Log in to like'}">
+            ${iconHeart} <span class="like-count">${likes.length || ''}</span>
+          </button>
+          <div class="comment-count" title="Comments">
+            ${iconComment} <span>${p.comments?.length || ''}</span>
+          </div>
+          <button
+            onclick="event.stopPropagation(); sharePost('${p.id}', '${escHtml(p.title)}')"
+            style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:#9ca3af;padding:4px 6px;border-radius:6px;font-size:12px;"
+            title="Share">
+            ${iconShare}
+          </button>
+        </div>
+        <div class="post-meta">
+          <div class="post-author">
+            ${avatarHtml(p.author, 24)}
+            <span>@${escHtml(p.author || 'user')}</span>
+          </div>
+          <div class="post-date">${new Date(p.createdAt).toLocaleDateString()}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function toggleLikePost(postId, btn) {
+  if (!State.currentUser) { showToast('Log in to like posts', 'error'); return; }
+  const post = allPosts.find(p => p.id === postId);
+  if (!post) return;
+  const res = await api('POST', `/posts/${postId}/like`, { username: State.currentUser });
+  if (res.success) {
+    const updated = res.data;
+    const idx = allPosts.findIndex(p => p.id === postId);
+    if (idx >= 0) allPosts[idx] = updated;
+    const likes = updated.likes || [];
+    const isLiked = likes.includes(State.currentUser);
+    btn.className = 'like-btn' + (isLiked ? ' liked' : '');
+    btn.querySelector('.like-count').textContent = likes.length || '';
+  }
+}
+
+function sharePost(postId, title) {
+  const url = `${location.origin}/post/${postId}`;
+  if (navigator.share) {
+    navigator.share({ title, url }).catch(() => {});
+  } else {
+    navigator.clipboard?.writeText(url)
+      .then(() => showToast('Link copied!'))
+      .catch(() => showToast('Could not copy link', 'error'));
+  }
+}
+
+function openModal(postId) {
+  const post = allPosts.find(p => p.id === postId);
+  if (!post) return;
+  currentModal = postId;
+  showPostModal(post, async () => {
+    currentModal = null;
+    await loadPosts();
+  });
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+init();
+</script>
+<script src="modal.js"></script>
+</body>
+</html>
