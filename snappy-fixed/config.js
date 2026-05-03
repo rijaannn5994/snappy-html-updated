@@ -8,7 +8,7 @@ const SNAPPY_CONFIG = {
   // Your Node.js backend URL (no trailing slash)
   // Local:      "http://localhost:3000"
   // Production: "https://your-backend.azurewebsites.net"
-  backendUrl: "http://localhost:3000",
+  backendUrl: "https://snappy-web-app-btf3cpg6bsg9acbg.italynorth-01.azurewebsites.net",
 
   // Azure Blob Storage — generate a new SAS token in Azure Portal
   // Storage Account → Shared access signature → Generate SAS and connection string
